@@ -11,6 +11,21 @@ module Neography
       :authentication, :username, :password,
       :parser, :client
 
+    def http_retryer
+      begin
+        tries ||= 10
+        yield if block_given?
+      rescue Exception => e
+        sleep_time = (1..2).to_a.sample # from: http://stackoverflow.com/questions/4395095/how-to-generate-a-random-number-between-a-and-b-in-ruby
+        puts "Neography connection exception detected!! Sleeping #{sleep_time} seconds and retrying."
+        puts e.inspect
+        puts e.backtrace
+        STDOUT.flush
+        sleep sleep_time
+        retry unless (tries -= 1).zero?
+      end        
+    end
+
     def initialize(options = ENV['NEO4J_URL'] || {})
       config = merge_configuration(options)
       save_local_configuration(config)
@@ -39,22 +54,34 @@ module Neography
 
     def get(path, options={})
       authenticate(configuration + path)
-      evaluate_response(@client.get(configuration + path, merge_options(options)[:body], merge_options(options)[:headers]))
+      evaluate_response(http_retryer do
+                          @client.get(configuration + path, merge_options(options)[:body], merge_options(options)[:headers])
+                        end
+                        )    
     end
 
     def post(path, options={})
       authenticate(configuration + path)
-      evaluate_response(@client.post(configuration + path, merge_options(options)[:body], merge_options(options)[:headers]))
+      evaluate_response(http_retryer do
+                          @client.post(configuration + path, merge_options(options)[:body], merge_options(options)[:headers])
+                        end
+                        )
     end
 
     def put(path, options={})
       authenticate(configuration + path)
-      evaluate_response(@client.put(configuration + path, merge_options(options)[:body], merge_options(options)[:headers]))
+      evaluate_response(http_retryer do
+                          @client.put(configuration + path, merge_options(options)[:body], merge_options(options)[:headers])
+                        end
+                        )
     end
 
     def delete(path, options={})
       authenticate(configuration + path)
-      evaluate_response(@client.delete(configuration + path, merge_options(options)[:body], merge_options(options)[:headers]))
+      evaluate_response(http_retryer do
+                          @client.delete(configuration + path, merge_options(options)[:body], merge_options(options)[:headers])
+                        end
+                        )
     end
 
     def authenticate(path)
